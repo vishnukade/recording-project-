@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Expletive Eradicator</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" type="text/css" href="home.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="heading">
+        Expletive Eradicator
+    </div>
+    <form action="#" method="post" enctype="multipart/form-data" id="audioForm">
+        <div class="content">
+            <label for="input_file">Upload the audio file:</label>
+            <input class="file_up" type="file" id="input_file" name="input_file" accept=".mp3, .wav">
+        </div>
+        <input type="submit" value="Submit">
+        
+        <h2>Record your audio</h2>
+        <button id="start_recording">Start Recording</button>
+        <button id="stop_recording" disabled>Stop Recording</button>
+        <span id="recording_status" style="display: none; color: green;">Recording...</span>
+    </form>
+</div>
+
+<!-- Logout button -->
+<a id="logout_button" href="/login"><button>Logout</button></a>
+
+<!-- Scripts -->
+<script src="https://cdn.rawgit.com/mattdiamond/Recorderjs/08e7abd9/dist/recorder.js"></script>
+<script>
+    let audioContext;
+    let recorder;
+
+    const startRecording = () => {
+        audioContext = new AudioContext();
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                const input = audioContext.createMediaStreamSource(stream);
+                recorder = new Recorder(input);
+                recorder.record();
+                // Show recording status
+                document.getElementById('recording_status').style.display = 'inline';
+            })
+            .catch(err => console.error('Error starting recording:', err));
+    };
+
+    const stopRecording = () => {
+        recorder.stop();
+        audioContext.close().then(() => {
+            recorder.exportWAV(blob => {
+                sendToServer(blob); // Send recorded audio to the server
+                // Clean up
+                audioContext = null;
+                recorder = null;
+            });
+        });
+    };
+
+    const sendToServer = (blob) => {
+        const formData = new FormData();
+        formData.append('audio', blob, 'recorded_audio.wav'); // Change the file name and extension if needed
+
+        fetch('mp3file.php', { // PHP script for conversion
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.blob())
+        .then(downloadFile)
+        .catch(error => console.error('Error sending audio to server:', error));
+    };
+
+    const downloadFile = (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'recorded_audio.mp3';
+        document.body.appendChild(a);
+        a.click();
+    };
+
+    document.getElementById('start_recording').addEventListener('click', () => {
+        startRecording();
+        document.getElementById('start_recording').disabled = true;
+        document.getElementById('stop_recording').disabled = false;
+    });
+
+    document.getElementById('stop_recording').addEventListener('click', () => {
+        stopRecording();
+        document.getElementById('start_recording').disabled = false;
+        document.getElementById('stop_recording').disabled = true;
+        document.getElementById('recording_status').style.display = 'none'; // Hide recording status
+    });
+</script>
+<!-- Script-ends -->
+</body>
+</html>
